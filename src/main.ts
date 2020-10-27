@@ -10,7 +10,22 @@ async function run() {
       throw new Error("Event payload missing `pull_request`");
     }
 
+    prContext =  {
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      pull_number: pr.number
+    }
+    
     const client = new github.GitHub(token);
+    const filenames = client
+       .paginate('GET /repos/:owner/:repo/pulls/:pull_number/files', prContext)
+       .then((resp) => resp.data.map((file) => file.filename));
+     for (const n of filenames) {
+       if (n.startsWith(".github/workflows/")) {
+         throw new Error("This PR attempts to change Actions configuration, bailing...")
+       }
+     }
+    
     core.debug(`Creating approving review for pull request #${pr.number}`);
     await client.pulls.createReview({
       owner: github.context.repo.owner,
